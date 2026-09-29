@@ -1,0 +1,506 @@
+_G.PJHUB_KEY = _G.PJHUB_KEY or ""
+
+if not game:IsLoaded() then 
+    game.Loaded:Wait() 
+end
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local VirtualUser = game:GetService("VirtualUser")
+local LocalPlayer = Players.LocalPlayer
+
+local PANEL_URL = "https://pjhub-panel-11.onrender.com"
+local rawKey = _G.PJHUB_KEY or ""
+
+local function trim(s)
+    return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
+
+local userKey = trim(tostring(rawKey))
+
+if userKey == "" or userKey == "nil" then
+    LocalPlayer:Kick("\n[PJHub] Nenhuma Key informada!\nDefina _G.PJHUB_KEY = 'SUA_KEY' antes do loadstring.")
+    return
+end
+
+-- ==========================================
+-- VALIDAÇÃO DE KEY (com UserID)
+-- ==========================================
+local function validateKey(keyToTest)
+    local reqFunc = (syn and syn.request) or (http and http.request) or http_request or request
+    if not reqFunc then return false, "Executor sem suporte HTTP." end
+
+    local userId = tostring(LocalPlayer.UserId)
+
+    local success, response = pcall(function()
+        return reqFunc({
+            Url = PANEL_URL .. "/api/validate?key=" .. HttpService:UrlEncode(keyToTest) .. "&userId=" .. HttpService:UrlEncode(userId),
+            Method = "GET",
+            Headers = { ["Content-Type"] = "application/json", ["User-Agent"] = "Roblox/PJHub" }
+        })
+    end)
+
+    if success and response then
+        local statusCode = response.StatusCode or response.Status
+        if statusCode == 200 then
+            local decodeSuccess, data = pcall(function() return HttpService:JSONDecode(response.Body) end)
+            if decodeSuccess and data and data.valid then return true, "OK" end
+            return false, (data and data.message) or "Key inválida."
+        end
+        return false, "Erro no servidor (Status " .. tostring(statusCode) .. ")"
+    end
+    return false, "Servidor indisponível."
+end
+
+local isValid, errorMsg = validateKey(userKey)
+if not isValid then
+    LocalPlayer:Kick("\n[PJHub] Falha na Autenticação:\n" .. tostring(errorMsg))
+    return
+end
+
+-- ==========================================
+-- VERIFICAÇÃO PERIÓDICA (a cada 10 segundos)
+-- ==========================================
+task.spawn(function()
+    while true do
+        task.wait(10)
+        local aindaValida, motivo = validateKey(userKey)
+        if not aindaValida then
+            LocalPlayer:Kick("\n[PJHub] Sua key foi alterada!\nMotivo: " .. tostring(motivo))
+            break
+        end
+    end
+end)
+
+-- ==========================================
+-- INTERFACE GRÁFICA
+-- ==========================================
+local CoreGui = game:GetService("CoreGui")
+if CoreGui:FindFirstChild("PJHub_System") then CoreGui.PJHub_System:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PJHub_System"
+ScreenGui.ResetOnSpawn = false
+pcall(function() if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = CoreGui end end)
+
+local OpenCircle = Instance.new("TextButton")
+OpenCircle.Name = "OpenCircle"
+OpenCircle.Parent = ScreenGui
+OpenCircle.Size = UDim2.new(0, 58, 0, 58)
+OpenCircle.Position = UDim2.new(0.05, 0, 0.2, 0)
+OpenCircle.BackgroundColor3 = Color3.fromRGB(5, 4, 8)
+OpenCircle.BorderSizePixel = 0
+OpenCircle.Text = "PJ"
+OpenCircle.TextColor3 = Color3.fromRGB(170, 30, 255)
+OpenCircle.TextSize = 24
+OpenCircle.Font = Enum.Font.SourceSansBold
+OpenCircle.Active = true
+OpenCircle.Draggable = true
+
+local CircleCorner = Instance.new("UICorner")
+CircleCorner.CornerRadius = UDim.new(1, 0)
+CircleCorner.Parent = OpenCircle
+
+local CircleStroke = Instance.new("UIStroke")
+CircleStroke.Parent = OpenCircle
+CircleStroke.Color = Color3.fromRGB(150, 0, 255)
+CircleStroke.Thickness = 3
+
+task.spawn(function()
+    while OpenCircle and OpenCircle.Parent do
+        local tween1 = TweenService:Create(CircleStroke, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Thickness = 4.5, Transparency = 0.1})
+        tween1:Play() tween1.Completed:Wait()
+        local tween2 = TweenService:Create(CircleStroke, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Thickness = 2, Transparency = 0.4})
+        tween2:Play() tween2.Completed:Wait()
+    end
+end)
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.Size = UDim2.new(0, 420, 0, 260)
+MainFrame.Position = UDim2.new(0.5, -210, 0.5, -130)
+MainFrame.BackgroundColor3 = Color3.fromRGB(7, 5, 12)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+MainFrame.Visible = false
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 16)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Parent = MainFrame
+MainStroke.Color = Color3.fromRGB(150, 0, 255)
+MainStroke.Thickness = 3
+
+local deco1 = Instance.new("Frame")
+deco1.Parent = MainFrame
+deco1.Size = UDim2.new(0, 50, 0, 4)
+deco1.Position = UDim2.new(0, -10, 0, 12)
+deco1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+deco1.BorderSizePixel = 0
+deco1.Rotation = -45
+deco1.ZIndex = 1
+
+local deco2 = Instance.new("Frame")
+deco2.Parent = MainFrame
+deco2.Size = UDim2.new(0, 50, 0, 4)
+deco2.Position = UDim2.new(0, -10, 0, 24)
+deco2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+deco2.BorderSizePixel = 0
+deco2.Rotation = -45
+deco2.ZIndex = 1
+
+local deco3 = Instance.new("Frame")
+deco3.Parent = MainFrame
+deco3.Size = UDim2.new(0, 50, 0, 4)
+deco3.Position = UDim2.new(1, -40, 1, -16)
+deco3.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+deco3.BorderSizePixel = 0
+deco3.Rotation = -45
+deco3.ZIndex = 1
+
+local deco4 = Instance.new("Frame")
+deco4.Parent = MainFrame
+deco4.Size = UDim2.new(0, 50, 0, 4)
+deco4.Position = UDim2.new(1, -40, 1, -28)
+deco4.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+deco4.BorderSizePixel = 0
+deco4.Rotation = -45
+deco4.ZIndex = 1
+
+local Title = Instance.new("TextLabel")
+Title.Parent = MainFrame
+Title.Size = UDim2.new(1, 0, 0, 45)
+Title.BackgroundTransparency = 1
+Title.Text = "PJ HUB"
+Title.TextColor3 = Color3.fromRGB(180, 50, 255)
+Title.TextSize = 26
+Title.Font = Enum.Font.SourceSansBold
+Title.ZIndex = 2
+
+local TitleStroke = Instance.new("UIStroke")
+TitleStroke.Parent = Title
+TitleStroke.Color = Color3.fromRGB(110, 0, 200)
+TitleStroke.Thickness = 1.8
+
+local linhaEsq = Instance.new("Frame")
+linhaEsq.Parent = MainFrame
+linhaEsq.Size = UDim2.new(0, 40, 0, 2)
+linhaEsq.Position = UDim2.new(0.5, -110, 0, 25)
+linhaEsq.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+linhaEsq.BorderSizePixel = 0
+linhaEsq.ZIndex = 2
+
+local linhaDir = Instance.new("Frame")
+linhaDir.Parent = MainFrame
+linhaDir.Size = UDim2.new(0, 40, 0, 2)
+linhaDir.Position = UDim2.new(0.5, 70, 0, 25)
+linhaDir.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+linhaDir.BorderSizePixel = 0
+linhaDir.ZIndex = 2
+
+local botoesCriados = {}
+
+local function criarBotao(nome, texto, acao, isToggle)
+    local botao = Instance.new("TextButton")
+    botao.Name = nome
+    botao.Parent = MainFrame
+    botao.BackgroundColor3 = Color3.fromRGB(12, 8, 20)
+    botao.BorderSizePixel = 0
+    botao.TextColor3 = Color3.fromRGB(200, 160, 255)
+    botao.TextSize = 12
+    botao.Font = Enum.Font.SourceSansBold
+    botao.ClipsDescendants = true
+    botao.TextWrapped = true
+    botao.ZIndex = 3
+
+    table.insert(botoesCriados, botao)
+
+    if isToggle then botao.Text = texto .. "\nOFF" else botao.Text = texto end
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 12)
+    btnCorner.Parent = botao
+
+    local btnStroke = Instance.new("UIStroke")
+    btnStroke.Parent = botao
+    btnStroke.Color = Color3.fromRGB(90, 0, 150)
+    btnStroke.Thickness = 1.5
+
+    local progressBar = nil
+    if isToggle then
+        progressBar = Instance.new("Frame")
+        progressBar.Name = "ProgressBar"
+        progressBar.Parent = botao
+        progressBar.Size = UDim2.new(0, 0, 0, 3)
+        progressBar.Position = UDim2.new(0, 0, 1, -3)
+        progressBar.BackgroundColor3 = Color3.fromRGB(200, 80, 255)
+        progressBar.BorderSizePixel = 0
+        local progressCorner = Instance.new("UICorner")
+        progressCorner.CornerRadius = UDim.new(0, 10)
+        progressCorner.Parent = progressBar
+    end
+
+    local function pulsar()
+        local tOriginal = botao.Size
+        local tPulso = UDim2.new(tOriginal.X.Scale, tOriginal.X.Offset + 6, tOriginal.Y.Scale, tOriginal.Y.Offset - 2)
+        local info = TweenInfo.new(0.1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        TweenService:Create(botao, info, {Size = tPulso}):Play()
+        task.wait(0.1)
+        TweenService:Create(botao, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = tOriginal}):Play()
+    end
+
+    if isToggle then
+        local enabled = false
+        botao.MouseButton1Click:Connect(function()
+            pulsar()
+            enabled = not enabled
+            local infoCor = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            if enabled then
+                TweenService:Create(botao, infoCor, {BackgroundColor3 = Color3.fromRGB(130, 0, 210)}):Play()
+                TweenService:Create(btnStroke, infoCor, {Color = Color3.fromRGB(200, 80, 255)}):Play()
+                TweenService:Create(botao, infoCor, {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+                progressBar.Size = UDim2.new(0, 0, 0, 3)
+                TweenService:Create(progressBar, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 3)}):Play()
+                botao.Text = texto .. "\nON"
+            else
+                TweenService:Create(botao, infoCor, {BackgroundColor3 = Color3.fromRGB(12, 8, 20)}):Play()
+                TweenService:Create(btnStroke, infoCor, {Color = Color3.fromRGB(90, 0, 150)}):Play()
+                TweenService:Create(botao, infoCor, {TextColor3 = Color3.fromRGB(200, 160, 255)}):Play()
+                TweenService:Create(progressBar, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 0, 3)}):Play()
+                botao.Text = texto .. "\nOFF"
+            end
+            acao(enabled)
+        end)
+    else
+        botao.MouseButton1Click:Connect(function()
+            pulsar()
+            local infoCor = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            TweenService:Create(botao, infoCor, {BackgroundColor3 = Color3.fromRGB(130, 0, 210), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+            TweenService:Create(btnStroke, infoCor, {Color = Color3.fromRGB(200, 80, 255)}):Play()
+            acao()
+            task.wait(0.25)
+            TweenService:Create(botao, infoCor, {BackgroundColor3 = Color3.fromRGB(12, 8, 20), TextColor3 = Color3.fromRGB(200, 160, 255)}):Play()
+            TweenService:Create(btnStroke, infoCor, {Color = Color3.fromRGB(90, 0, 150)}):Play()
+        end)
+    end
+end
+
+local function reorganizarBotoes()
+    local largura = MainFrame.AbsoluteSize.X
+    local colunas
+    if largura < 250 then colunas = 1
+    elseif largura < 380 then colunas = 2
+    else colunas = 3 end
+
+    local margem = 15
+    local espaco = 10
+    local larguraDisponivel = largura - (margem * 2) - (espaco * (colunas - 1))
+    local larguraBotao = larguraDisponivel / colunas
+    local alturaBotao = 52
+
+    for i, botao in ipairs(botoesCriados) do
+        local col = (i - 1) % colunas
+        local row = math.floor((i - 1) / colunas)
+        botao.Size = UDim2.new(0, larguraBotao, 0, alturaBotao)
+        botao.Position = UDim2.new(0, margem + col * (larguraBotao + espaco), 0, 60 + row * (alturaBotao + espaco))
+    end
+end
+
+local isResizing = false
+local startSize, startMouse
+
+local ResizeIcon = Instance.new("TextButton")
+ResizeIcon.Parent = MainFrame
+ResizeIcon.Size = UDim2.new(0, 22, 0, 22)
+ResizeIcon.Position = UDim2.new(1, -24, 1, -24)
+ResizeIcon.BackgroundTransparency = 1
+ResizeIcon.Text = "◢"
+ResizeIcon.TextColor3 = Color3.fromRGB(150, 0, 255)
+ResizeIcon.TextSize = 20
+ResizeIcon.Font = Enum.Font.SourceSansBold
+ResizeIcon.ZIndex = 1000
+
+ResizeIcon.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isResizing = true
+        MainFrame.Draggable = false
+        startSize = MainFrame.Size
+        startMouse = input.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isResizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - startMouse
+        local newX = math.clamp(startSize.X.Offset + delta.X, 200, 600)
+        local newY = math.clamp(startSize.Y.Offset + delta.Y, 200, 600)
+        MainFrame.Size = UDim2.new(0, newX, 0, newY)
+        reorganizarBotoes()
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isResizing = false
+        MainFrame.Draggable = true
+    end
+end)
+
+local janelaAberta = false
+
+local function abrirJanela()
+    MainFrame.Visible = true
+    MainFrame.Size = UDim2.new(0, 380, 0, 220)
+    MainFrame.BackgroundTransparency = 1
+    MainStroke.Transparency = 1
+    Title.TextTransparency = 1
+    TitleStroke.Transparency = 1
+
+    local info = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    TweenService:Create(MainFrame, info, {Size = UDim2.new(0, 420, 0, 260), BackgroundTransparency = 0}):Play()
+    TweenService:Create(MainStroke, info, {Transparency = 0}):Play()
+    TweenService:Create(Title, info, {TextTransparency = 0}):Play()
+    TweenService:Create(TitleStroke, info, {Transparency = 0}):Play()
+    task.wait(0.3)
+    reorganizarBotoes()
+end
+
+local function fecharJanela()
+    local info = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+    TweenService:Create(MainFrame, info, {Size = UDim2.new(0, 380, 0, 220), BackgroundTransparency = 1}):Play()
+    TweenService:Create(MainStroke, info, {Transparency = 1}):Play()
+    TweenService:Create(Title, info, {TextTransparency = 1}):Play()
+    TweenService:Create(TitleStroke, info, {Transparency = 1}):Play()
+    task.wait(0.2)
+    MainFrame.Visible = false
+end
+
+OpenCircle.MouseButton1Click:Connect(function()
+    if janelaAberta then
+        janelaAberta = false
+        fecharJanela()
+    else
+        janelaAberta = true
+        abrirJanela()
+    end
+end)
+
+local autoGoConn = nil
+criarBotao("AutoGoButton", "Auto Go", function(state)
+    if state then
+        autoGoConn = RunService.Heartbeat:Connect(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = LocalPlayer.Character.HumanoidRootPart
+                hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 1000, hrp.AssemblyLinearVelocity.Z)
+            end
+        end)
+    else
+        if autoGoConn then autoGoConn:Disconnect() autoGoConn = nil end
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = LocalPlayer.Character.HumanoidRootPart
+            hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z)
+        end
+    end
+end, true)
+
+local fastJumpConn = nil
+criarBotao("FastJumpButton", "Fast Jump", function(state)
+    if state then
+        fastJumpConn = RunService.Heartbeat:Connect(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                local hrp = LocalPlayer.Character.HumanoidRootPart
+                local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid.FloorMaterial == Enum.Material.Air then
+                    if hrp.AssemblyLinearVelocity.Y > 5 then
+                        hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -80, hrp.AssemblyLinearVelocity.Z)
+                    end
+                end
+            end
+        end)
+    else
+        if fastJumpConn then fastJumpConn:Disconnect() fastJumpConn = nil end
+    end
+end, true)
+
+local autoStealAtivo = false
+criarBotao("AutoStealButton", "Auto Steal", function(state)
+    autoStealAtivo = state
+    if state then
+        task.spawn(function()
+            while autoStealAtivo do
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = LocalPlayer.Character.HumanoidRootPart
+                    for _, servico in ipairs({game:GetService("Workspace"), game:GetService("ReplicatedStorage"), game:GetService("Players"), game:GetService("CoreGui")}) do
+                        for _, prompt in ipairs(servico:GetDescendants()) do
+                            if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+                                local pai = prompt.Parent
+                                if pai and pai:IsA("BasePart") then
+                                    local dist = (pai.Position - hrp.Position).Magnitude
+                                    if dist <= 30 then
+                                        local txt = string.lower(prompt.ActionText)
+                                        if txt:find("grab") or txt:find("pegar") or txt:find("steal") or txt:find("coletar") then
+                                            pcall(function() prompt.HoldDuration = 0 end)
+                                            if fireproximityprompt then pcall(function() fireproximityprompt(prompt, 0) end) end
+                                            pcall(function()
+                                                prompt:InputBegan()
+                                                task.wait(0.02)
+                                                prompt:InputEnded()
+                                            end)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                task.wait(0.15)
+            end
+        end)
+    end
+end, true)
+
+local baseSalva = nil
+criarBotao("TpSalvarButton", "Salvar Base", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        baseSalva = LocalPlayer.Character.HumanoidRootPart.CFrame
+        print("[PJHub] Base salva!")
+    end
+end, false)
+
+criarBotao("TpVoltarButton", "TP para Base", function()
+    if not baseSalva then return end
+    if not LocalPlayer.Character then return end
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.Anchored = true
+    hrp.CFrame = baseSalva
+    task.wait(0.1)
+    local tempoInicio = tick()
+    while tick() - tempoInicio < 2 do
+        hrp.CFrame = baseSalva
+        task.wait(0.05)
+    end
+    hrp.Anchored = false
+    print("[PJHub] Voltou para a Base!")
+end, false)
+
+local antiAfkConn = nil
+criarBotao("AntiAfkButton", "Anti AFK", function(state)
+    if state then
+        antiAfkConn = LocalPlayer.Idled:Connect(function()
+            VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end)
+    else
+        if antiAfkConn then antiAfkConn:Disconnect() antiAfkConn = nil end
+    end
+end, true)
